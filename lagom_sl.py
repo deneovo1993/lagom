@@ -1,8 +1,6 @@
 import os
-import numpy as np
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
 st.set_page_config(page_title="Lagom Market Dashboard", layout="wide")
@@ -13,7 +11,6 @@ FOLDER = os.path.dirname(os.path.abspath(__file__))
 def load_data():
     master = pd.read_csv(os.path.join(FOLDER, "master_counties.csv"), low_memory=False)
     target = pd.read_csv(os.path.join(FOLDER, "target_counties.csv"), low_memory=False)
-
     for df in [master, target]:
         df["state"] = df["geographic_area_name"].str.split(",").str[-1].str.strip()
         for col in ["median_listing_price", "absorption_rate", "hotness_score",
@@ -21,16 +18,11 @@ def load_data():
                     "homes_sold", "active_listings", "median_household_income"]:
             if col in df.columns:
                 df[col] = pd.to_numeric(df[col], errors="coerce")
-
     return master, target
 
 master, target = load_data()
 
-
-# ============================================================
-# SIDEBAR FILTERS
-# ============================================================
-
+# SIDEBAR
 st.sidebar.title("Filters")
 
 all_states = ["All States"] + sorted(target["state"].dropna().unique())
@@ -45,84 +37,37 @@ price_min, price_max = st.sidebar.slider(
     format="$%d"
 )
 
-min_absorption = st.sidebar.slider(
-    "Minimum Absorption Rate (%)",
-    min_value=0.0,
-    max_value=float(target["absorption_rate"].max()),
-    value=0.0,
-    step=0.5
-)
-
-min_hotness = st.sidebar.slider(
-    "Minimum Hotness Score",
-    min_value=0.0,
-    max_value=float(target["hotness_score"].max()),
-    value=0.0,
-    step=1.0
-)
-
-max_dom = st.sidebar.slider(
-    "Max Days on Market",
-    min_value=1,
-    max_value=int(target["median_days_on_market_x"].max()),
-    value=int(target["median_days_on_market_x"].max()),
-    step=1
-)
-
 filtered = target[
-    target["median_listing_price"].between(price_min, price_max) &
-    (target["absorption_rate"] >= min_absorption) &
-    (target["hotness_score"] >= min_hotness) &
-    (target["median_days_on_market_x"] <= max_dom)
+    target["median_listing_price"].between(price_min, price_max)
 ].copy()
 
 if selected_state != "All States":
     filtered = filtered[filtered["state"] == selected_state]
 
-
-# ============================================================
 # HEADER
-# ============================================================
-
 st.title("Lagom Development — Market Prioritization Dashboard")
-st.caption("Data-Driven County Selection for $200K–$300K Housing Development")
+st.caption("County Selection for $200K–$300K Housing Development")
 st.markdown("---")
 
-
-# ============================================================
-# OVERVIEW STATS
-# ============================================================
-
-col1, col2, col3, col4, col5 = st.columns(5)
+# TOP STATS
+col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total Counties Analyzed", f"{len(master):,}")
 col2.metric("Target Counties ($200K–$300K)", f"{len(target):,}")
 col3.metric("Filtered Counties", f"{len(filtered):,}")
 col4.metric("Avg Absorption Rate", f"{filtered['absorption_rate'].mean():.1f}%")
-col5.metric("Avg Days on Market", f"{filtered['median_days_on_market_x'].mean():.0f} days")
-
 st.markdown("---")
 
-
-# ============================================================
-# TAB LAYOUT
-# ============================================================
-
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "Top Counties", "County Explorer", "Market Charts", "Supply & Demand", "Regression Results"
-])
+# TABS
+tab1, tab2, tab3 = st.tabs(["Top Counties", "Market Charts", "Regression Results"])
 
 
-# ============================================================
 # TAB 1: TOP COUNTIES
-# ============================================================
-
 with tab1:
     st.subheader("Top Recommended Counties")
-    st.caption("Ranked by combined absorption rate, hotness score, demand score, and days on market.")
+    st.caption("Ranked by absorption rate, hotness score, demand score, and days on market.")
 
     rank_data = filtered.dropna(subset=["absorption_rate", "hotness_score",
                                          "demand_score", "median_days_on_market_x"]).copy()
-
     if len(rank_data) > 0:
         rank_data["score"] = (
             rank_data["absorption_rate"].rank(pct=True)
@@ -189,46 +134,8 @@ with tab1:
         st.warning("No counties match the current filters.")
 
 
-# ============================================================
-# TAB 2: COUNTY EXPLORER
-# ============================================================
-
+# TAB 2: MARKET CHARTS
 with tab2:
-    st.subheader("County Explorer")
-
-    sort_col = st.selectbox("Sort by", [
-        "absorption_rate", "hotness_score", "demand_score",
-        "median_listing_price", "median_days_on_market_x", "supply_score"
-    ])
-
-    sort_asc = st.radio("Order", ["Descending", "Ascending"]) == "Ascending"
-
-    explore_cols = {
-        "geographic_area_name": "County",
-        "state": "State",
-        "median_listing_price": "Median Price ($)",
-        "absorption_rate": "Absorption Rate (%)",
-        "hotness_score": "Hotness Score",
-        "demand_score": "Demand Score",
-        "supply_score": "Supply Score",
-        "median_days_on_market_x": "Days on Market",
-        "median_household_income": "Median Income ($)"
-    }
-
-    explore = filtered[[c for c in explore_cols if c in filtered.columns]].rename(columns=explore_cols)
-    col_to_sort = explore_cols.get(sort_col, sort_col)
-    if col_to_sort in explore.columns:
-        explore = explore.sort_values(col_to_sort, ascending=sort_asc)
-
-    st.dataframe(explore.reset_index(drop=True), use_container_width=True)
-    st.caption(f"Showing {len(explore):,} counties")
-
-
-# ============================================================
-# TAB 3: MARKET CHARTS
-# ============================================================
-
-with tab3:
     col_left, col_right = st.columns(2)
 
     with col_left:
@@ -255,7 +162,7 @@ with tab3:
             st.plotly_chart(fig, use_container_width=True)
 
     with col_right:
-        st.subheader("Top States by Target County Count")
+        st.subheader("Target Counties by State")
         state_counts = filtered["state"].value_counts().head(15).reset_index()
         state_counts.columns = ["State", "Count"]
         fig = px.bar(
@@ -269,121 +176,10 @@ with tab3:
         fig.update_layout(height=500)
         st.plotly_chart(fig, use_container_width=True)
 
-    col_left2, col_right2 = st.columns(2)
 
-    with col_left2:
-        st.subheader("Days on Market Distribution")
-        dom_data = filtered.dropna(subset=["median_days_on_market_x"])
-        fig = px.histogram(
-            dom_data,
-            x="median_days_on_market_x",
-            nbins=30,
-            color_discrete_sequence=["#1D5E6A"],
-            labels={"median_days_on_market_x": "Median Days on Market"}
-        )
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col_right2:
-        st.subheader("Listing Price Distribution")
-        price_data = filtered.dropna(subset=["median_listing_price"])
-        fig = px.histogram(
-            price_data,
-            x="median_listing_price",
-            nbins=30,
-            color_discrete_sequence=["#A87B50"],
-            labels={"median_listing_price": "Median Listing Price ($)"}
-        )
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("Market Screening Funnel")
-    county_rows = int(master["geographic_area_name"].str.contains("County", case=False, na=False).sum())
-    target_with_absorption = int(target["absorption_rate"].notna().sum())
-
-    funnel_labels = ["Master Records", "County Records", "$200K–$300K Target Counties", "Targets with Absorption Rate"]
-    funnel_values = [len(master), county_rows, len(target), target_with_absorption]
-
-    fig = go.Figure(go.Bar(
-        x=funnel_labels,
-        y=funnel_values,
-        marker_color=["#6B7280", "#1D5E6A", "#A87B50", "#4C7A5B"],
-        text=[f"{v:,}" for v in funnel_values],
-        textposition="outside"
-    ))
-    fig.update_layout(height=400, yaxis_title="Number of Records")
-    st.plotly_chart(fig, use_container_width=True)
-
-
-# ============================================================
-# TAB 4: SUPPLY & DEMAND
-# ============================================================
-
-with tab4:
-    col_left, col_right = st.columns(2)
-
-    with col_left:
-        st.subheader("Demand vs. Supply Score")
-        sd_data = filtered.dropna(subset=["demand_score", "supply_score"]).copy()
-        if len(sd_data) > 0:
-            fig = px.scatter(
-                sd_data,
-                x="demand_score",
-                y="supply_score",
-                color="median_days_on_market_x",
-                hover_name="geographic_area_name",
-                color_continuous_scale=["#4C7A5B", "#A87B50"],
-                labels={
-                    "demand_score": "Demand Score",
-                    "supply_score": "Supply Score",
-                    "median_days_on_market_x": "Days on Market"
-                }
-            )
-            fig.update_layout(height=500)
-            st.plotly_chart(fig, use_container_width=True)
-
-    with col_right:
-        st.subheader("Supply Score vs. Days on Market")
-        sd2 = filtered.dropna(subset=["supply_score", "median_days_on_market_x"]).copy()
-        if len(sd2) > 0:
-            fig = px.scatter(
-                sd2,
-                x="supply_score",
-                y="median_days_on_market_x",
-                color="absorption_rate",
-                hover_name="geographic_area_name",
-                color_continuous_scale=["#A87B50", "#1D5E6A"],
-                labels={
-                    "supply_score": "Supply Score",
-                    "median_days_on_market_x": "Days on Market",
-                    "absorption_rate": "Absorption Rate (%)"
-                }
-            )
-            fig.update_layout(height=500)
-            st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("Average Metrics by State")
-    state_avg = filtered.groupby("state").agg(
-        avg_absorption=("absorption_rate", "mean"),
-        avg_hotness=("hotness_score", "mean"),
-        avg_dom=("median_days_on_market_x", "mean"),
-        avg_supply=("supply_score", "mean"),
-        avg_demand=("demand_score", "mean"),
-        county_count=("geographic_area_name", "count")
-    ).round(1).reset_index().sort_values("avg_absorption", ascending=False)
-
-    state_avg.columns = ["State", "Avg Absorption (%)", "Avg Hotness",
-                         "Avg Days on Market", "Avg Supply Score",
-                         "Avg Demand Score", "County Count"]
-    st.dataframe(state_avg.reset_index(drop=True), use_container_width=True)
-
-
-# ============================================================
-# TAB 5: REGRESSION RESULTS
-# ============================================================
-
-with tab5:
-    st.subheader("Regression Model Results")
+# TAB 3: REGRESSION RESULTS
+with tab3:
+    st.subheader("Model Comparison")
 
     model_results = pd.DataFrame({
         "Model": ["OLS", "Ridge", "Lasso", "Random Forest"],
@@ -392,44 +188,27 @@ with tab5:
         "R²":    [0.893, 0.892, 0.892, 0.9995]
     })
     st.dataframe(model_results, use_container_width=True, hide_index=True)
-    st.caption("Random Forest R² of 0.9995 is cross-validated (CV). Training R² was 1.0 due to overfitting.")
+    st.caption("Random Forest R² of 0.9995 is cross-validated. Training R² was 1.0 due to overfitting. OLS R² of 0.893 is the more reliable estimate.")
 
-    col_l, col_r = st.columns(2)
+    st.subheader("Feature Importance (Random Forest)")
+    importance = pd.DataFrame({
+        "Feature": ["supply_score", "demand_score", "median_listing_price",
+                    "median_household_income", "total_households"],
+        "Importance": [0.9998, 0.0001, 0.0001, 0.0000, 0.0000]
+    }).sort_values("Importance")
 
-    with col_l:
-        st.subheader("Feature Importance (Random Forest)")
-        importance = pd.DataFrame({
-            "Feature": ["supply_score", "demand_score", "median_listing_price",
-                        "median_household_income", "total_households"],
-            "Importance": [0.9998, 0.0001, 0.0001, 0.0000, 0.0000]
-        }).sort_values("Importance")
+    fig = px.bar(
+        importance,
+        x="Importance",
+        y="Feature",
+        orientation="h",
+        color_discrete_sequence=["#1D5E6A"],
+        labels={"Importance": "Importance Score", "Feature": ""}
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
-        fig = px.bar(
-            importance,
-            x="Importance",
-            y="Feature",
-            orientation="h",
-            color_discrete_sequence=["#1D5E6A"],
-            labels={"Importance": "Importance Score", "Feature": ""}
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    with col_r:
-        st.subheader("Model RMSE Comparison")
-        fig = px.bar(
-            model_results,
-            x="Model",
-            y="RMSE",
-            color_discrete_sequence=["#1D5E6A"],
-            text="RMSE"
-        )
-        fig.update_traces(textposition="outside")
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
-
-    st.subheader("Key Finding")
     st.info(
-        "Supply score accounts for over 99% of feature importance in the Random Forest model. "
-        "Counties with low housing supply relative to demand sell homes significantly faster. "
+        "Supply score accounts for over 99% of feature importance. "
+        "Counties with constrained supply relative to demand sell homes faster. "
         "Price and income do not statistically predict sale speed at the county level."
     )
