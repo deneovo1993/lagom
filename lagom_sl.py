@@ -24,8 +24,8 @@ master, target = load_data()
 
 # SIDEBAR
 st.sidebar.title("Filters")
-all_states = ["All States"] + sorted(target["state"].dropna().unique())
-selected_state = st.sidebar.selectbox("State", all_states)
+all_states = sorted(target["state"].dropna().unique())
+selected_states = st.sidebar.multiselect("State (select one or more)", all_states)
 price_min, price_max = st.sidebar.slider(
     "Listing Price Range ($)",
     min_value=200000,
@@ -36,8 +36,8 @@ price_min, price_max = st.sidebar.slider(
 )
 
 filtered = target[target["median_listing_price"].between(price_min, price_max)].copy()
-if selected_state != "All States":
-    filtered = filtered[filtered["state"] == selected_state]
+if selected_states:
+    filtered = filtered[filtered["state"].isin(selected_states)]
 
 # HEADER
 st.title("Lagom Development — Market Prioritization Dashboard")
