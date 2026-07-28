@@ -188,20 +188,20 @@ with col_l3:
 
 with col_r3:
     st.subheader("Demand vs. Supply Score")
-    st.caption("Counties in the top-left (high demand, low supply) are the strongest opportunities.")
+    st.caption("Counties in the bottom-right (high demand, low supply) are the strongest opportunities for Lagom — buyers are active but homes are scarce.")
     ds = filtered.dropna(subset=["demand_score", "supply_score"]).copy()
     if len(ds) > 0:
         fig = px.scatter(
             ds,
             x="demand_score",
             y="supply_score",
-            color="median_days_on_market_x",
+            color="absorption_rate",
             hover_name="geographic_area_name",
-            color_continuous_scale=["#4C7A5B", "#A87B50"],
+            color_continuous_scale=["#1D5E6A", "#A87B50"],
             labels={
                 "demand_score": "Demand Score",
                 "supply_score": "Supply Score",
-                "median_days_on_market_x": "Days on Market"
+                "absorption_rate": "Absorption Rate (%)"
             }
         )
         fig.update_layout(height=450)
