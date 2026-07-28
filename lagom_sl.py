@@ -172,25 +172,19 @@ st.markdown("---")
 col_l3, col_r3 = st.columns(2)
 
 with col_l3:
-    st.subheader("Supply Score vs. Days on Market")
-    st.caption("Lower supply = more days on market. This is the key regression finding.")
-    sd = filtered.dropna(subset=["supply_score", "median_days_on_market_x"]).copy()
-    if len(sd) > 0:
-        fig = px.scatter(
-            sd,
-            x="supply_score",
-            y="median_days_on_market_x",
-            color="demand_score",
-            hover_name="geographic_area_name",
-            color_continuous_scale=["#1D5E6A", "#A87B50"],
-            labels={
-                "supply_score": "Supply Score",
-                "median_days_on_market_x": "Days on Market",
-                "demand_score": "Demand Score"
-            }
-        )
-        fig.update_layout(height=450)
-        st.plotly_chart(fig, use_container_width=True)
+    st.subheader("Top 20 by Days on Market (Fastest Selling)")
+    st.caption("Counties where homes sell the fastest — a signal of strong buyer demand.")
+    fast = filtered.dropna(subset=["median_days_on_market_x"]).nsmallest(20, "median_days_on_market_x")
+    fig = px.bar(
+        fast.sort_values("median_days_on_market_x", ascending=False),
+        x="median_days_on_market_x",
+        y="geographic_area_name",
+        orientation="h",
+        color_discrete_sequence=["#1D5E6A"],
+        labels={"median_days_on_market_x": "Days on Market", "geographic_area_name": ""}
+    )
+    fig.update_layout(height=550)
+    st.plotly_chart(fig, use_container_width=True)
 
 with col_r3:
     st.subheader("Demand vs. Supply Score")
