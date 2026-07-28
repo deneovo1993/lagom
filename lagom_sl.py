@@ -180,13 +180,13 @@ with col_l3:
             sd,
             x="supply_score",
             y="median_days_on_market_x",
-            color="absorption_rate",
+            color="demand_score",
             hover_name="geographic_area_name",
-            color_continuous_scale=["#A87B50", "#1D5E6A"],
+            color_continuous_scale=["#1D5E6A", "#A87B50"],
             labels={
                 "supply_score": "Supply Score",
                 "median_days_on_market_x": "Days on Market",
-                "absorption_rate": "Absorption Rate (%)"
+                "demand_score": "Demand Score"
             }
         )
         fig.update_layout(height=450)
